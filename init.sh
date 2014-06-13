@@ -129,30 +129,18 @@ PUPPET_DIR="$FACTER_init_repodir/puppet"
 rm -rf /etc/puppet ; ln -s $PUPPET_DIR /etc/puppet
 puppet apply -e "file { '/etc/hiera.yaml': ensure => link, target => '/etc/puppet/hiera.yaml' }" > /dev/null
 
-# # Install RVM to manage Ruby versions
-echo "Installing RVM and latest Ruby"
-curl -sSL https://get.rvm.io | bash -s stable --ruby
-source /usr/local/rvm/scripts/rvm
-
-# # Use RVM to select specific Ruby version (2.1+) for use with Librarian-puppet
-rvm use ruby
 
 # Install and execute Librarian Puppet
 # Create symlink to role specific Puppetfile
 rm -f /etc/puppet/Puppetfile ; ln -s /etc/puppet/Puppetfiles/Puppetfile.$FACTER_init_role /etc/puppet/Puppetfile > /dev/null
 echo -n "Installing librarian-puppet"
-progress_bar gem install librarian-puppet --no-ri --no-rdoc
-echo -n "Installing Puppet gem"
-progress_bar gem install puppet --no-ri --no-rdoc
+progress_bar gem install librarian-puppet -v 1.0.2 --no-ri --no-rdoc
 cd $PUPPET_DIR
 echo -n "Installing Puppet modules"
 progress_bar librarian-puppet install --verbose
 echo -n "Updating Puppet modules"
 progress_bar librarian-puppet update --verbose
 librarian-puppet show
-
-# # Use RVM to revert Ruby version to back to system default (1.8.7)
-rvm use system
 
 # Make things happen.
 echo ""
