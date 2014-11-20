@@ -187,6 +187,7 @@ if [ -f /etc/puppet/Puppetfiles/$ENV_ROLE_PUPPETFILE ]; then
   ROLE_PUPPETFILE=$ENV_ROLE_PUPPETFILE
 fi
 rm -f /etc/puppet/Puppetfile ; cat /etc/puppet/Puppetfiles/$BASE_PUPPETFILE /etc/puppet/Puppetfiles/$ROLE_PUPPETFILE > /etc/puppet/Puppetfile
+gem sources -a http://rubygems.org
 echo -n "Installing librarian-puppet"
 progress_bar gem install librarian-puppet --no-ri --no-rdoc
 echo -n "Installing Puppet gem"
