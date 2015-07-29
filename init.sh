@@ -1,34 +1,59 @@
 #!/bin/bash
 
-# Usage: init.sh --role webserver --environment prod1 --site a --repouser jimfdavies --reponame provtest-config
+function yum_install {
+  PACKAGE_LIST=""
+  for i in "$@"
+  do
+    yum --noplugins list installed "$i" > /dev/null 2>&1
+    if [ $? == 0 ]
+    then
+      echo "$i is already installed"
+    else
+      PACKAGE_LIST="$PACKAGE_LIST $i"
+    fi
+  done
 
-VERSION=0.0.1
+  if [ -n "$PACKAGE_LIST" ]
+  then
+    yum install -y $(echo "$PACKAGE_LIST" | xargs)
+  fi
+}
 
-if [ ${!#} == "--debug" ]
+function gem_install {
+  for i in "$@"
+  do
+    gem list --local $(echo "$i" | cut -d ':' -f 1)  | grep $(echo "$i" | cut -d ':' -f 1) > /dev/null 2>&1
+    if [ $? == 0 ]
+    then
+      echo "$i is already installed"
+    else
+      GEM_LIST="$GEM_LIST $i"
+    fi
+  done
+  if [ -n "$GEM_LIST" ]
+  then
+    gem install $(echo "$GEM_LIST" | xargs) --no-ri --no-rdoc
+  fi
+}
+
+# Check the version of Ruby before we don anything
+ruby -v  > /dev/null 2>&1
+if [ $? -ne 0 ]
 then
-  function progress_bar {
-  $@
-  }
-else
-  function progress_bar {
-    while :;do echo -n .;sleep 1;done &
-    $@ > /dev/null
-    kill $!; trap 'kill $!' SIGTERM
-    echo -e "\e[0;32m done \e[0m"
-  }
+  yum install -y https://s3-eu-west-1.amazonaws.com/msm-public-repo/ruby/ruby-2.1.5-2.el6.x86_64.rpm
 fi
 
-# Install Puppet
-# RHEL
+if [ $(ruby -v | awk '{print $2}' | cut -d '.' -f 1) -lt 2 ]
+then
+  yum install -y https://s3-eu-west-1.amazonaws.com/msm-public-repo/ruby/ruby-2.1.5-2.el6.x86_64.rpm
+fi
 
-echo -n "Uninstalling old Ruby and Puppet"
-yum remove -y ruby-* puppet-*
 
-echo -n "Installing Ruby"
-progress_bar yum install -y https://s3-eu-west-1.amazonaws.com/msm-public-repo/ruby/ruby-2.1.5-2.el6.x86_64.rpm augeas-devel ncurses-devel gcc gcc-c++
+echo "Installing required yum packages"
+yum_install augeas-devel ncurses-devel gcc gcc-c++ curl git
 
-echo -n "Installing curl"
-progress_bar yum install -y curl
+echo "Installing required gems"
+gem_install puppet:3.7.4 hiera facter ruby-augeas hiera-eyaml
 
 GEM_SOURCES=
 tmp_sources=false
@@ -75,9 +100,6 @@ if [ ! -z "$GEM_SOURCES" ]; then
   IFS=$OIFS
 fi
 
-echo -n "Installing Puppet"
-progress_bar gem install puppet:3.7.4 hiera facter ruby-augeas --no-ri --no-rdoc
-
 # Process command line params
 function print_version {
   echo $1 $2
@@ -89,11 +111,13 @@ function print_help {
 
 function set_facter {
   export FACTER_$1=$2
-  puppet apply -e "file { '/etc/facter': ensure => directory, mode => '0600' } -> \
-                   file { '/etc/facter/facts.d': ensure => directory, mode => '0600' } -> \
-                   file { '/etc/facter/facts.d/$1.txt': ensure => present, mode => '0600', content => '$1=$2' }" --logdest syslog > /dev/null
-  echo -n "Facter says $1 is:"
-  echo -e "\e[0;32m $(facter $1) \e[0m"
+  if [ ! -d /etc/facter ]
+  then
+    mkdir -p /etc/facter/facts.d
+  fi
+  echo "$1=$2" > /etc/facter/facts.d/$1.txt
+  chmod -R 600 /etc/facter
+  cat /etc/facter/facts.d/$1.txt
 }
 
 while test -n "$1"; do
@@ -173,18 +197,22 @@ fi
 # Set Git login params
 echo "Injecting private ssh key"
 GITHUB_PRI_KEY=$(cat $FACTER_init_repoprivkeyfile)
-puppet apply -v -e "file {'ssh': path => '/root/.ssh/',ensure => directory} -> \
-                    file {'id_rsa': path => '/root/.ssh/id_rsa',ensure => present, mode    => '0600', content => '$GITHUB_PRI_KEY'} -> \
-                    file {'config': path => '/root/.ssh/config',ensure => present, mode    => '0644', content => 'StrictHostKeyChecking=no'} -> \
-                    package { 'git': ensure => present }" > /dev/null
+if [ ! -d /root/.ssh ]
+then
+  mkdir /root/.ssh
+  chmod 600 /root/.ssh
+fi
+echo "$GITHUB_PRI_KEY" > /root/.ssh/id_rsa
+echo "StrictHostKeyChecking=no" > /root/.ssh/config
+chmod -R 600 /root/.ssh
 
 # Set some defaults if they aren't given on the command line.
 [ -z "$FACTER_init_repobranch" ] && set_facter init_repobranch master
 [ -z "$FACTER_init_repodir" ] && set_facter init_repodir /opt/$FACTER_init_reponame
 
 # Clone private repo.
-puppet apply -e "file { '$FACTER_init_repodir': ensure => absent, force => true }" > /dev/null
 echo "Cloning $FACTER_init_repouser/$FACTER_init_reponame repo"
+rm -rf $FACTER_init_repodir
 git clone -b $FACTER_init_repobranch git@github.com:$FACTER_init_repouser/$FACTER_init_reponame.git $FACTER_init_repodir
 
 # Exit if the clone fails
@@ -195,30 +223,32 @@ fi
 
 # Link /etc/puppet to our private repo.
 PUPPET_DIR="$FACTER_init_repodir/puppet"
-rm -rf /etc/puppet ; ln -s $PUPPET_DIR /etc/puppet
-puppet apply -e "file { '/etc/hiera.yaml': ensure => link, target => '/etc/puppet/hiera.yaml' }" > /dev/null
-
-# Install eyaml gem
-echo -n "Installing eyaml gem"
-progress_bar gem install hiera-eyaml --no-ri --no-rdoc
+rm -rf /etc/puppet > /dev/null 2>&1
+rm /etc/hiera.yaml > /dev/null 2>&1
+ln -s $PUPPET_DIR /etc/puppet
+ln -s /etc/puppet/hiera.yaml /etc/hiera.yaml
 
 # If no eyaml keys have been provided, create some
 if [ -z "$FACTER_init_eyamlpubkeyfile" ] && [ -z "$FACTER_init_eyamlprivkeyfile" ] && [ ! -d "/etc/puppet/secure/keys" ]
 then
-  puppet apply -v -e "file {'/etc/puppet/secure': ensure => directory, mode => '0500'} -> \
-                      file {'/etc/puppet/secure/keys': ensure => directory, mode => '0500'}" > /dev/null
+  if [ ! -d /etc/puppet/secure/keys ]
+  then
+    mkdir -p /etc/puppet/secure/keys
+    chmod -R 500 /etc/puppet/secure
+  fi
   cd /etc/puppet/secure
   echo -n "Creating eyaml key pair"
-  progress_bar eyaml createkeys
+  eyaml createkeys
 else
 # Or use the ones provided
   echo "Injecting eyaml keys"
   EYAML_PUB_KEY=$(cat $FACTER_init_eyamlpubkeyfile)
   EYAML_PRI_KEY=$(cat $FACTER_init_eyamlprivkeyfile)
-  puppet apply -v -e "file {'/etc/puppet/secure': ensure => directory, mode => '0500'} -> \
-                      file {'/etc/puppet/secure/keys': ensure => directory, mode => '0500'} -> \
-                      file {'/etc/puppet/secure/keys/public_key.pkcs7.pem': ensure => present, mode => '0400', content => '$EYAML_PUB_KEY'} -> \
-                      file {'/etc/puppet/secure/keys/private_key.pkcs7.pem': ensure => present, mode => '0400', content => '$EYAML_PRI_KEY'}" > /dev/null
+  mkdir -p /etc/puppet/secure/keys
+  echo "$EYAML_PUB_KEY" > /etc/puppet/secure/keys/public_key.pkcs7.pem
+  echo "$EYAML_PRI_KEY" > /etc/puppet/secure/keys/private_key.pkcs7.pem
+  chmod -R 500 /etc/puppet/secure
+  chmod 400 /etc/puppet/secure/keys/*.pem
 fi
 
 # Install and execute Librarian Puppet
@@ -243,18 +273,17 @@ MODULE_ARCH=${FACTER_init_role}.$PUPPETFILE_MD5SUM.tar.gz
 cd $PUPPET_DIR
 
 if [[ ! -z ${FACTER_init_moduleshttpcache} && "200" == $(curl ${FACTER_init_moduleshttpcache}/$MODULE_ARCH  --head --silent | head -n 1 | cut -d ' ' -f 2) ]]; then
-  echo -n "Downloading pre-packed Puppet modules from cache..."
-  curl -o modules.tar.gz ${FACTER_init_moduleshttpcache}/$MODULE_ARCH
+  echo "Downloading pre-packed Puppet modules from cache..."
+  curl -s -o modules.tar.gz ${FACTER_init_moduleshttpcache}/$MODULE_ARCH
   tar zxpf modules.tar.gz
   echo "================="
   echo "Unpacked modules:"
   find ./modules -maxdepth 1 -type d | cut -d '/' -f 3
   echo "================="
 else
-  echo -n "Installing librarian-puppet"
-  progress_bar gem install librarian-puppet --no-ri --no-rdoc
   echo -n "Installing Puppet modules"
-  progress_bar librarian-puppet install --verbose
+  gem_install librarian-puppet
+  librarian-puppet install --verbose
   librarian-puppet show
 fi
 
