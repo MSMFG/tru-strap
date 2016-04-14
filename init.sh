@@ -45,6 +45,7 @@ parse_args() {
       shift
       ;;
     --repoprivkeyfile|-k)
+      cat "$2" > /dev/null || exit $?
       set_facter init_repoprivkeyfile "${2}"
       shift
       ;;
@@ -57,10 +58,12 @@ parse_args() {
       shift
       ;;
     --eyamlpubkeyfile|-j)
+      cat "$2" > /dev/null || exit $?
       set_facter init_eyamlpubkeyfile "${2}"
       shift
       ;;
     --eyamlprivkeyfile|-m)
+      cat "$2" > /dev/null || exit $?
       set_facter init_eyamlprivkeyfile "${2}"
       shift
       ;;
@@ -72,9 +75,11 @@ parse_args() {
       PASSWD="${2}"
       shift
       ;;
+    # FIXME: Discarded option. Remove it?
     --gemsources)
       shift
       ;;
+    # FIXME: Discarded option. Remove it?
     --debug)
       shift
       ;;
