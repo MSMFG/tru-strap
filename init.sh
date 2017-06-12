@@ -314,10 +314,17 @@ clone_git_repo() {
 }
 
 # Symlink the cloned git repo to the usual location for Puppet to run
+# Puppet 4 directories
+# mkdir /etc/puppetlabs
+# ln -s /opt/dwh-role-configs/puppet /etc/puppetlabs/puppet
+# mkdir /etc/puppetlabs/code
+# ln -s /opt/dwh-role-configs/puppet/modules /etc/puppetlabs/code/modules
 symlink_puppet_dir() {
   local RESULT=''
   # Link /etc/puppetlabs/puppet to our private repo.
   PUPPET_DIR="${FACTER_init_repodir}/puppet"
+  # new modules location for puppet 4
+  mkdir -p /etc/puppetlabs/code
   if [ -e /etc/puppetlabs/puppet ]; then
     RESULT=$(rm -rf /etc/puppetlabs/puppet);
     if [[ $? != 0 ]]; then
