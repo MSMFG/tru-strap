@@ -325,6 +325,8 @@ symlink_puppet_dir() {
   PUPPET_DIR="${FACTER_init_repodir}/puppet"
   # new modules location for puppet 4
   mkdir -p /etc/puppetlabs/code
+  mkdir -p /etc/puppet
+
   if [ -e /etc/puppetlabs/puppet ]; then
     RESULT=$(rm -rf /etc/puppetlabs/puppet);
     if [[ $? != 0 ]]; then
@@ -340,6 +342,11 @@ symlink_puppet_dir() {
   RESULT=$(ln -s /etc/puppetlabs/puppet/modules /etc/puppetlabs/code/modules)
   if [[ $? != 0 ]]; then
     log_error "Failed to create symlink from ${PUPPET_DIR}/modules\nln returned:\n${RESULT}"
+  fi
+
+  RESULT=$(ln -s /etc/puppetlabs/puppet/hieradata /etc/puppet/hieradata)
+  if [[ $? != 0 ]]; then
+    log_error "Failed to create symlink from ${PUPPET_DIR}/hieradata\nln returned:\n${RESULT}"
   fi
 
   if [ -e /etc/hiera.yaml ]; then
