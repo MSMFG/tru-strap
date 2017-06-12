@@ -375,13 +375,13 @@ inject_eyaml_keys() {
     *) log_error "Exit code $ret : Failed to verify group $GRP" ;;
   esac
 
-  if [[ ! -d /etc/puppetlabs/puppet/secure/keys ]]; then
-    mkdir -p /etc/puppetlabs/puppet/secure/keys || log_error "Failed to create /etc/puppetlabs/puppet/secure/keys"
-    chmod -R 550 /etc/puppetlabs/puppet/secure || log_error "Failed to change permissions on /etc/puppetlabs/puppet/secure"
+  if [[ ! -d /etc/puppet/secure/keys ]]; then
+    mkdir -p /etc/puppet/secure/keys || log_error "Failed to create /etc/puppetlabs/puppet/secure/keys"
+    chmod -R 550 /etc/puppet/secure || log_error "Failed to change permissions on /etc/puppetlabs/puppet/secure"
   fi
   # If no eyaml keys have been provided, create some
   if [[ -z "${FACTER_init_eyamlpubkeyfile}" ]] && [[ -z "${FACTER_init_eyamlprivkeyfile}" ]]; then
-    cd /etc/puppetlabs/puppet/secure || log_error "Failed to cd to /etc/puppetlabs/puppet/secure"
+    cd /etc/puppet/secure || log_error "Failed to cd to /etc/puppet/secure"
     echo -n "Creating eyaml key pair"
     eyaml createkeys || log_error "Failed to create eyaml keys."
   else
@@ -389,18 +389,18 @@ inject_eyaml_keys() {
     echo "Injecting eyaml keys"
     local RESULT=''
 
-    RESULT=$(cp ${FACTER_init_eyamlpubkeyfile} /etc/puppetlabs/puppet/secure/keys/public_key.pkcs7.pem)
+    RESULT=$(cp ${FACTER_init_eyamlpubkeyfile} /etc/puppet/secure/keys/public_key.pkcs7.pem)
     if [[ $? != 0 ]]; then
       log_error "Failed to insert public key:\n${RESULT}"
     fi
 
-    RESULT=$(cp ${FACTER_init_eyamlprivkeyfile} /etc/puppetlabs/puppet/secure/keys/private_key.pkcs7.pem)
+    RESULT=$(cp ${FACTER_init_eyamlprivkeyfile} /etc/puppet/secure/keys/private_key.pkcs7.pem)
     if [[ $? != 0 ]]; then
       log_error "Failed to insert private key:\n${RESULT}"
     fi
 
-    chgrp -R $GRP /etc/puppetlabs/puppet/secure || log_error "Failed to change group on /etc/puppetlabs/puppet/secure"
-    chmod 440 /etc/puppetlabs/puppet/secure/keys/*.pem || log_error "Failed to set permissions on /etc/puppetlabs/puppet/secure/keys/*.pem"
+    chgrp -R $GRP /etc/puppet/secure || log_error "Failed to change group on /etc/puppet/secure"
+    chmod 440 /etc/puppet/secure/keys/*.pem || log_error "Failed to set permissions on /etc/puppet/secure/keys/*.pem"
   fi
 }
 
