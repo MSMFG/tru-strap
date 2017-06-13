@@ -508,7 +508,7 @@ run_puppet() {
 
   #Find the newest puppet log
   local PUPPET_LOG=''
-  PUPPET_LOG=$(find /var/lib/puppet/reports -type f -exec ls -ltr {} + | tail -n 1 | awk '{print $9}')
+  PUPPET_LOG=$(find /opt/puppetlabs/puppet/cache/reports -type f -exec ls -ltr {} + | tail -n 1 | awk '{print $9}')
   PERFORMANCE_DATA=( $(grep evaluation_time "${PUPPET_LOG}" | awk '{print $2}' | sort -n | tail -10 ) )
   echo "===============-Top 10 slowest Puppet resources-==============="
   for i in ${PERFORMANCE_DATA[*]}; do
