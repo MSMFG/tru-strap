@@ -513,7 +513,7 @@ run_puppet() {
   echo "===============-Top 10 slowest Puppet resources-==============="
   for i in ${PERFORMANCE_DATA[*]}; do
     echo -n "${i}s - "
-    echo "$(grep -B 3 "$i" /var/lib/puppet/reports/*/*.yaml | head -1 | awk '{print $2 $3}' )"
+    echo "$(grep -B 3 "$i" /opt/puppetlabs/puppet/cache/reports/*/*.yaml | head -1 | awk '{print $2 $3}' )"
   done | tac
   echo "===============-Top 10 slowest Puppet resources-==============="
 }
