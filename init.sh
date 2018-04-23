@@ -310,7 +310,7 @@ install_gem_deps() {
   gem_install unversioned_gem_manifest:1.0.0
   # Default in /tmp may be unreadable for systems that overmount /tmp (AEM)
   export RUBYGEMS_UNVERSIONED_MANIFEST=/var/log/unversioned_gems.yaml  
-  gem_install puppet:3.8.7 hiera facter 'ruby-augeas:~>0.5' 'hiera-eyaml:~>2.1' 'ruby-shadow:~>2.5' facter_ipaddress_primary:1.0.1
+  gem_install puppet:3.8.7 hiera facter 'ruby-augeas:~>0.5' 'hiera-eyaml:~>2.1' 'ruby-shadow:~>2.5' facter_ipaddress_primary:1.1.0
 
   # Configure facter_ipaddress_primary so it works outside this script.
   # i.e Users logging in interactively can run puppet apply successfully
