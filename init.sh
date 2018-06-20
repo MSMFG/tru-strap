@@ -35,6 +35,8 @@ usagemessage="Error, USAGE: $(basename "${0}") \n \
   [--gemsources|-s] \n \
   [--securepuppet|-z] \n \
   [--help|-h] \n \
+  [--debug] \n \
+  [--parser] \n \
   [--version|-v]"
 
 function log_error() {
@@ -111,7 +113,12 @@ parse_args() {
         SECURE_PUPPET="${2}"
         shift
         ;;
+      --parser)
+        PUPPET_PARSER="${$2}"
+        shift
+        ;;
       --debug)
+        PUPPET_DEBUG="${2}"
         shift
         ;;
       *)
@@ -136,6 +143,10 @@ parse_args() {
   # Set some defaults if they aren't given on the command line.
   [[ -z "${FACTER_init_repobranch}" ]] && set_facter init_repobranch master
   [[ -z "${FACTER_init_repodir}" ]] && set_facter init_repodir /opt/"${FACTER_init_reponame}"
+
+  # Set variables beased on parameters
+  [[ "${PUPPET_DEBUG}" == "true" ]] && PUPPET_DEBUG_OPT='--debug'
+  [[ "${PUPPET_PARSER}" == "future" ]] && PUPPET_PARSER_OPT='--parser future'
 }
 
 # For the role skydns, prepend the nameserver to the list returned by DHCP
@@ -519,7 +530,7 @@ run_puppet() {
   echo ""
   echo "Running puppet apply"
   export FACTERLIB="${FACTERLIB}:$(ipaddress_primary_path)"
-  puppet apply /etc/puppet/manifests/site.pp --detailed-exitcodes
+  puppet apply ${PUPPET_DEBUG_OPT} ${PUPPET_PARSER_OPT} /etc/puppet/manifests/site.pp --detailed-exitcodes
 
   PUPPET_EXIT=$?
 
