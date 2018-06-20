@@ -144,9 +144,10 @@ parse_args() {
   [[ -z "${FACTER_init_repobranch}" ]] && set_facter init_repobranch master
   [[ -z "${FACTER_init_repodir}" ]] && set_facter init_repodir /opt/"${FACTER_init_reponame}"
 
-  # Set variables based on parameters
+  # Set variables based on parameters and process PUPPET_OPTS
   [[ "${PUPPET_DEBUG}" == "true" ]] && PUPPET_DEBUG_OPT='--debug'
   [[ "${PUPPET_PARSER}" == "future" ]] && PUPPET_PARSER_OPT='--parser future'
+  PUPPET_APPLY_OPTS="${PUPPET_DEBUG_OPT} ${PUPPET_PARSER_OPT}"
 }
 
 # For the role skydns, prepend the nameserver to the list returned by DHCP
@@ -530,7 +531,7 @@ run_puppet() {
   echo ""
   echo "Running puppet apply"
   export FACTERLIB="${FACTERLIB}:$(ipaddress_primary_path)"
-  puppet apply ${PUPPET_DEBUG_OPT} ${PUPPET_PARSER_OPT} /etc/puppet/manifests/site.pp --detailed-exitcodes
+  puppet apply ${PUPPET_APPLY_OPTS} /etc/puppet/manifests/site.pp --detailed-exitcodes
 
   PUPPET_EXIT=$?
 
