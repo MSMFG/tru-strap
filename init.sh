@@ -114,7 +114,7 @@ parse_args() {
         shift
         ;;
       --parser)
-        PUPPET_PARSER="${$2}"
+        PUPPET_PARSER="${2}"
         shift
         ;;
       --debug)
