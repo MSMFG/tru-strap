@@ -144,7 +144,7 @@ parse_args() {
   [[ -z "${FACTER_init_repobranch}" ]] && set_facter init_repobranch master
   [[ -z "${FACTER_init_repodir}" ]] && set_facter init_repodir /opt/"${FACTER_init_reponame}"
 
-  # Set variables beased on parameters
+  # Set variables based on parameters
   [[ "${PUPPET_DEBUG}" == "true" ]] && PUPPET_DEBUG_OPT='--debug'
   [[ "${PUPPET_PARSER}" == "future" ]] && PUPPET_PARSER_OPT='--parser future'
 }
