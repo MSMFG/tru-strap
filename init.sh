@@ -11,6 +11,7 @@ main() {
     set_gemsources "$@"
     configure_global_gemrc
     install_gem_deps
+    patch_puppet
     inject_ssh_key
     inject_repo_token
     clone_git_repo
@@ -115,6 +116,10 @@ parse_args() {
         ;;
       --puppet-opts)
         PUPPET_APPLY_OPTS="${2}"
+        shift
+        ;;
+      --ruby-required-version)
+        RUBY_REQUIRED_VERSION="${2}"
         shift
         ;;
       --debug)
@@ -245,12 +250,16 @@ upgrade_nss() {
 }
 
 install_ruby() {
+  if [[ -z "${RUBY_REQUIRED_VERSION}" ]]; then
+    RUBY_REQUIRED_VERSION=2.1.5:2.1.5-2
+  fi
+  ruby_v=$(echo ${RUBY_REQUIRED_VERSION} | cut -d: -f1)
+  ruby_p_v=$(echo ${RUBY_REQUIRED_VERSION} | cut -d: -f2)
   majorversion=$(lsb_release -rs | cut -f1 -d.)
-  ruby_v="2.1.5"
   ruby -v  > /dev/null 2>&1
-  if [[ $? -ne 0 ]] || [[ $(ruby -v | awk '{print $2}' | cut -d 'p' -f 1) != $ruby_v ]]; then
+  if [[ $? -ne 0 ]] || [[ $(ruby -e 'puts RUBY_VERSION') != $ruby_v ]]; then
     yum remove -y ruby-* || log_error "Failed to remove old ruby"
-    yum_install https://s3-eu-west-1.amazonaws.com/msm-public-repo/ruby/ruby-2.1.5-2.el${majorversion}.x86_64.rpm
+    yum_install https://s3-eu-west-1.amazonaws.com/msm-public-repo/ruby/ruby-${ruby_p_v}.el${majorversion}.x86_64.rpm
   fi
 }
 
@@ -317,11 +326,34 @@ install_gem_deps() {
   # Default in /tmp may be unreadable for systems that overmount /tmp (AEM)
   export RUBYGEMS_UNVERSIONED_MANIFEST=/var/log/unversioned_gems.yaml  
   gem_install puppet:3.8.7 hiera facter 'ruby-augeas:~>0.5' 'hiera-eyaml:~>2.1' 'ruby-shadow:~>2.5' facter_ipaddress_primary:1.1.0
-
   # Configure facter_ipaddress_primary so it works outside this script.
   # i.e Users logging in interactively can run puppet apply successfully
   echo 'export FACTERLIB="${FACTERLIB}:$(ipaddress_primary_path)"'>/etc/profile.d/ipaddress_primary.sh
   chmod 0755 /etc/profile.d/ipaddress_primary.sh
+}
+
+# Only happens for Rubies >= 2.2
+patch_puppet() {
+  /usr/bin/env ruby <<-EORUBY
+# If for some reason run with old Rubies
+class Array
+  include Comparable
+end
+exit if RUBY_VERSION.split('.').map(&:to_i) < [2, 2]
+require 'rubygems'
+# Locate main puppet library inside gems
+puppet = Gem.find_files('puppet.rb').find { |path| path.include?('3.8.7') }
+exit unless puppet
+vendor_path = File.expand_path('../puppet/vendor', puppet)
+require 'fileutils'
+Dir.chdir(vendor_path) do
+  exit unless File.exist?('load_safe_yaml.rb')
+  FileUtils.mv('load_safe_yaml.rb', '_load_safe_yaml.rb')
+  FileUtils.mv('require_vendored.rb', '_require_vendored.rb')
+  File.write('require_vendored.rb', 'module SafeYAML; OPTIONS = {}; end')
+end
+puts "Puppet installation patched for Ruby #{RUBY_VERSION} (by tru-strap)"
+EORUBY
 }
 
 # Inject the SSH key to allow git cloning
