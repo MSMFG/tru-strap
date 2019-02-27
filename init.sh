@@ -91,6 +91,10 @@ parse_args() {
         set_facter init_repodir "${2}"
         shift
         ;;
+      --repourl|-s)
+        set_facter init_repourl "${2}"
+        shift
+        ;;
       --eyamlpubkeyfile|-j)
         set_facter init_eyamlpubkeyfile "${2}"
         shift
@@ -147,6 +151,16 @@ parse_args() {
   # Set some defaults if they aren't given on the command line.
   [[ -z "${FACTER_init_repobranch}" ]] && set_facter init_repobranch master
   [[ -z "${FACTER_init_repodir}" ]] && set_facter init_repodir /opt/"${FACTER_init_reponame}"
+  
+  # Allow own source control to be specified for initial repo URL,
+  # otherwise try to identify which is in use based on org/project name to set a default
+  if [[ -z "${FACTER_init_repourl}" ]]; then
+    if [[ "${FACTER_init_repouser}" == "MSMFG" ]]; then
+        set_facter init_repourl "git@github.com:"
+    else
+        set_facter init_repourl "https://bitbucket1-eu1.moneysupermarketgroup.com/scm/"
+    fi
+  fi
 }
 
 # For the role skydns, prepend the nameserver to the list returned by DHCP
@@ -386,9 +400,9 @@ clone_git_repo() {
   echo "Cloning ${FACTER_init_repouser}/${FACTER_init_reponame} repo"
   rm -rf "${FACTER_init_repodir}"
   # Exit if the clone fails
-  if ! git clone --depth=1 -b "${FACTER_init_repobranch}" git@github.com:"${FACTER_init_repouser}"/"${FACTER_init_reponame}".git "${FACTER_init_repodir}";
+  if ! git clone --depth=1 -b "${FACTER_init_repobranch}" "${FACTER_init_repourl}${FACTER_init_repouser}"/"${FACTER_init_reponame}".git "${FACTER_init_repodir}";
   then
-    log_error "Failed to clone git@github.com:${FACTER_init_repouser}/${FACTER_init_reponame}.git"
+    log_error "Failed to clone ${FACTER_init_repourl}${FACTER_init_repouser}/${FACTER_init_reponame}.git"
   fi
 }
 
