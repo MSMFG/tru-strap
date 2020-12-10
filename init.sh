@@ -368,70 +368,35 @@ fetch_puppet_modules() {
   echo "Cached puppet module tar ball should be ${MODULE_ARCH}, checking if it exists"
   cd "${PUPPET_DIR}" || log_error "Failed to cd to ${PUPPET_DIR}"
 
-  # check if the moduleshttpcache fact exists
-  if [[ ! -z "${FACTER_init_moduleshttpcache}" ]]; then
-  
-    # check if its an s3 address
-    if [[ "${FACTER_init_moduleshttpcache}" =~ "s3-eu-west-1" ]]; then
-
-      # if its s3 address update url from https://s3 to s3://
-      if [[ "${FACTER_init_moduleshttpcache}" =~ "v2" ]]; then
-        FACTER_init_moduleshttpcache="s3://$(echo $FACTER_init_moduleshttpcache | cut -d: -f2 | cut -d/ -f4-)"
-      fi
-
-      # check if the module is in the bucket. If run for the first time it wont be.
-      if [[ $(/bin/aws s3 ls ${FACTER_init_moduleshttpcache}/${MODULE_ARCH} | wc -l) -ge 1 ]]; then
-
-        echo -n "Downloading pre-packed Puppet modules ${FACTER_init_moduleshttpcache}..."
-        /bin/aws s3 cp ${FACTER_init_moduleshttpcache}/${MODULE_ARCH} ${MODULE_ARCH}
-
-        tar tf ${MODULE_ARCH} &> /dev/null
-        tar_test=$?
-
-        if [[ $tar_test -eq 0 ]]; then
-          tar xpf ${MODULE_ARCH}
-          echo "=================="
-          echo "Unpacking modules:"
-          puppet module list
-          echo "=================="
-        else 
-          echo "There seems to be a problem with ${MODULE_ARCH}. Running librarian-puppet instead"
-          run_librarian
-        fi
-      else
-        echo "Module isnt in ${FACTER_init_moduleshttpcache}/${MODULE_ARCH} running librarian"
-        run_librarian
-      fi
-
-    elif [[ "200" == $(curl "${FACTER_init_moduleshttpcache}"/"${MODULE_ARCH}"  --head --silent | head -n 1 | cut -d ' ' -f 2) ]]; then
-      echo -n "Downloading pre-packed Puppet modules from cache..."
-      if [[ ! -z $PASSWD ]]; then
-        package=modules.tar
-        echo "================="
-        echo "Using Encrypted modules ${FACTER_init_moduleshttpcache}/$MODULE_ARCH "
-        echo "================="
-        curl --silent ${FACTER_init_moduleshttpcache}/$MODULE_ARCH |
-          gzip -cd |
-          openssl enc -base64 -aes-128-cbc -d -salt -out $package -k $PASSWD
-      else
-        package=modules.tar.gz
-        curl --silent -o $package ${FACTER_init_moduleshttpcache}/$MODULE_ARCH
-      fi
-
-
-      tar tf $package &> /dev/null
-      TEST_TAR=$?
-      if [[ $TEST_TAR -eq 0 ]]; then
-        tar xpf $package
-        echo "================="
-        echo "Unpacked modules:"
-        puppet module list --color false
-        echo "================="
-      else
-        echo "Seems we failed to decrypt archive file... running librarian-puppet instead"
-        run_librarian
-      fi
+  if [[ ! -z "${FACTER_init_moduleshttpcache}" && "200" == $(curl "${FACTER_init_moduleshttpcache}"/"${MODULE_ARCH}"  --head --silent | head -n 1 | cut -d ' ' -f 2) ]]; then
+    echo -n "Downloading pre-packed Puppet modules from cache..."
+    if [[ ! -z $PASSWD ]]; then
+      package=modules.tar
+      echo "================="
+      echo "Using Encrypted modules ${FACTER_init_moduleshttpcache}/$MODULE_ARCH "
+      echo "================="
+      curl --silent ${FACTER_init_moduleshttpcache}/$MODULE_ARCH |
+        gzip -cd |
+        openssl enc -base64 -aes-128-cbc -d -salt -out $package -k $PASSWD
+    else
+      package=modules.tar.gz
+      curl --silent -o $package ${FACTER_init_moduleshttpcache}/$MODULE_ARCH
     fi
+
+
+    tar tf $package &> /dev/null
+    TEST_TAR=$?
+    if [[ $TEST_TAR -eq 0 ]]; then
+      tar xpf $package
+      echo "================="
+      echo "Unpacked modules:"
+      puppet module list --color false
+      echo "================="
+    else
+      echo "Seems we failed to decrypt archive file... running librarian-puppet instead"
+      run_librarian
+    fi
+
   else
     echo "Nope!"
     run_librarian
