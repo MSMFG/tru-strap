@@ -384,12 +384,16 @@ fetch_puppet_modules() {
 
         echo -n "Downloading pre-packed Puppet modules ${FACTER_init_moduleshttpcache}..."
         /bin/aws s3 cp ${FACTER_init_moduleshttpcache}/${MODULE_ARCH} ${MODULE_ARCH}
+        
+        package=modules.tar
 
-        tar tf ${MODULE_ARCH} &> /dev/null
+        gzip -cd  ${MODULE_ARCH} | openssl enc -base64 -aes-128-cbc -d -salt -out $package -k $PASSWD
+        
+        tar tf $package &> /dev/null
         tar_test=$?
 
         if [[ $tar_test -eq 0 ]]; then
-          tar xpf ${MODULE_ARCH}
+          tar xpf $package 
           echo "=================="
           echo "Unpacking modules:"
           puppet module list
