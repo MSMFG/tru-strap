@@ -372,7 +372,7 @@ fetch_puppet_modules() {
   if [[ ! -z "${FACTER_init_moduleshttpcache}" ]]; then
   
     # check if its an s3 address
-    if [[ "${FACTER_init_moduleshttpcache}" =~ "s3-eu-west-1" ]]; then
+    if [[ "${FACTER_init_moduleshttpcache}" =~ "s3-eu-west-1" ]] && [[ -f /bin/aws ]]; then
 
       # if its s3 address update url from https://s3 to s3://
       if [[ "${FACTER_init_moduleshttpcache}" =~ "v2" ]]; then
